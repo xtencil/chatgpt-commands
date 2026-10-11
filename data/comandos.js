@@ -34,6 +34,7 @@ var ATLAS = window.ATLAS = window.ATLAS || {};
 
 /* Enlace al repositorio para el botón «Editar en GitHub» (déjalo vacío si no lo usas). */
 ATLAS.repositorio = 'https://github.com/xtencil/chatgpt-commands';
+ATLAS.rama = 'claude/eager-euler-bd15i3';   /* rama donde está este archivo en GitHub */
 
 ATLAS.categorias = [
   {

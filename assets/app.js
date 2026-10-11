@@ -280,7 +280,7 @@
           <button type="button" class="boton" data-fav="${esc(it.id)}" aria-pressed="${esFav(it)}">${ICON.corazon}${esFav(it) ? 'En favoritos' : 'Favorito'}</button>
           <button type="button" class="boton" data-mezcla="${esc(it.id)}" aria-pressed="${enMezcla(it)}">${ICON.mas}${enMezcla(it) ? 'En la mezcla' : 'Añadir a la mezcla'}</button>
           <button type="button" class="boton boton-fantasma" data-copiar-comando="${esc(it.id)}">${ICON.copiar}Copiar ${esc(it.comando)}</button>
-          ${repo ? `<a class="boton boton-fantasma" href="${esc(repo)}/edit/main/data/comandos.js" target="_blank" rel="noopener">${ICON.editar}Editar en GitHub<span class="sr"> (se abre en otra pestaña)</span></a>` : ''}
+          ${repo ? `<a class="boton boton-fantasma" href="${esc(repo)}/edit/${esc(DATOS.rama || 'main')}/data/comandos.js" target="_blank" rel="noopener">${ICON.editar}Editar en GitHub<span class="sr"> (se abre en otra pestaña)</span></a>` : ''}
         </div>
         <p class="nota">Receta de la miniatura: <code>${esc(it.receta)}</code></p>
       </div>`;
