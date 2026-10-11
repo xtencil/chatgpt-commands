@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Catálogo de miniaturas</title>
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  .cat { max-width: 1400px; margin: 0 auto; padding: 24px 20px 80px; }
+  .cat h1 { margin: 0 0 6px; font-size: 26px; }
+  .cat h2 { margin: 36px 0 12px; font-size: 18px; }
+  .cat > p { color: var(--texto-suave); max-width: 760px; }
+  .probador { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; padding: 16px; border: 1px solid var(--borde); border-radius: var(--radio); background: var(--superficie); margin-top: 16px; }
+  .probador .campo-grupo { flex: 1 1 280px; }
+  .probador img { width: 280px; aspect-ratio: 4 / 3; border-radius: var(--radio-sm); border: 1px solid var(--borde); }
+  .rejilla { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .rejilla button { all: unset; display: block; width: 100%; cursor: pointer; }
+  .rejilla button:focus-visible { outline: 3px solid var(--foco); outline-offset: 2px; }
+  .rejilla li { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio-sm); overflow: hidden; }
+  .rejilla img { width: 100%; aspect-ratio: 4 / 3; }
+  .rejilla p { margin: 0; padding: 8px 10px; font-size: 13px; }
+  .rejilla code { font-weight: 700; }
+  .rejilla span { display: block; color: var(--texto-suave); font-size: 12px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<main class="cat">
+  <p><a class="enlace" href="index.html">← Volver a la biblioteca</a></p>
+  <h1>Catálogo de miniaturas</h1>
+  <p>Cada comando de <code>data/comandos.js</code> tiene una <code>miniatura</code> con la receta <code>motivo + técnica</code>. Aquí ves todos los motivos (qué aparece) y todas las técnicas (cómo se representa). Haz clic en cualquiera para copiar su nombre.</p>
+
+  <section class="probador" aria-labelledby="probarTitulo">
+    <div class="campo-grupo">
+      <h2 id="probarTitulo" style="margin:0 0 8px">Probar una receta</h2>
+      <label for="receta">Receta</label>
+      <input id="receta" class="campo" value="gato + acuarela" autocomplete="off" spellcheck="false" aria-describedby="recetaEstado">
+      <p id="recetaEstado" class="nota" aria-live="polite"></p>
+      <button type="button" class="boton" id="copiarReceta">Copiar como línea de miniatura</button>
+    </div>
+    <img id="vista" alt="">
+  </section>
+
+  <h2 id="motivosT">Motivos <span class="contador" id="nMotivos"></span></h2>
+  <ul class="rejilla" id="motivos" aria-labelledby="motivosT"></ul>
+
+  <h2 id="tecnicasT">Técnicas <span class="contador" id="nTecnicas"></span></h2>
+  <p class="nota">Cada técnica se muestra sobre su motivo por defecto. Puedes aplicarla a cualquier motivo: <code>retrato + neon</code>, <code>castillo + acuarela</code>…</p>
+  <ul class="rejilla" id="tecnicas" aria-labelledby="tecnicasT"></ul>
+</main>
+<div id="aviso" class="tostada" role="status" aria-live="polite"></div>
+
+<script src="assets/miniaturas/motor.js"></script>
+<script src="assets/miniaturas/motivos.js"></script>
+<script src="assets/miniaturas/motivos-naturaleza.js"></script>
+<script src="assets/miniaturas/motivos-lugares.js"></script>
+<script src="assets/miniaturas/motivos-diseno.js"></script>
+<script src="assets/miniaturas/motivos-tecnologia.js"></script>
+<script src="assets/miniaturas/tecnicas.js"></script>
+<script>
+(function () {
+  const M = window.Miniaturas, $ = s => document.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let t;
+  const avisar = m => { const a = $('#aviso'); a.textContent = m; a.classList.add('visible'); clearTimeout(t); t = setTimeout(() => a.classList.remove('visible'), 2000); };
+  const copiar = txt => navigator.clipboard.writeText(txt).then(() => avisar('Copiado: ' + txt), () => avisar(txt));
+  const tarjeta = (receta, nombre, extra = '') => `<li><button type="button" class="elegir" data-receta="${esc(receta)}" aria-label="Usar ${esc(receta)}"><img loading="lazy" src="${M.uri(receta)}" alt=""><p><code>${esc(receta)}</code><span>${esc(nombre)}${extra}</span></p></button></li>`;
+  const mot = [];
+  Object.entries(M.motivos).forEach(([id, m]) => {
+    mot.push(tarjeta(id, m.nombre, m.grupo ? ' · ' + m.grupo : ''));
+    Object.entries(m.variantes || {}).forEach(([v, n]) => mot.push(tarjeta(id + ':' + v, n)));
+  });
+  $('#motivos').innerHTML = mot.join('');
+  $('#nMotivos').textContent = mot.length;
+  const tec = Object.entries(M.tecnicas).filter(([id]) => id !== 'plano').map(([id, x]) => tarjeta(id, x.nombre, ' · sobre ' + (x.motivo || 'retrato')));
+  $('#tecnicas').innerHTML = tec.join('');
+  $('#nTecnicas').textContent = tec.length;
+  const probar = () => {
+    const r = $('#receta').value;
+    const ok = M.valida(r);
+    $('#recetaEstado').textContent = ok ? 'Receta válida: ' + M.describe(r) : 'No reconozco alguna parte. Usa nombres de esta página separados por +.';
+    if (ok) { $('#vista').src = M.uri(r); $('#vista').alt = 'Vista previa: ' + M.describe(r); }
+  };
+  $('#receta').addEventListener('input', probar);
+  $('#copiarReceta').addEventListener('click', () => copiar(`miniatura: '${$('#receta').value.trim()}'`));
+  document.addEventListener('click', e => { const b = e.target.closest('[data-receta]'); if (b) { $('#receta').value = b.dataset.receta; probar(); copiar(b.dataset.receta); } });
+  probar();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Prompt Atlas</title>
+<meta name="description" content="Biblioteca local de comandos visuales para IA, con imágenes de referencia, prompts listos para copiar y consejos de uso para diseño.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23c8f26b'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='Arial' font-weight='900' font-size='16' fill='%2313200a'%3EP/%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/app.css">
+<script>
+  /* Tema guardado antes de pintar (evita parpadeo). */
+  try { var t = JSON.parse(localStorage.getItem('atlas:prefs') || '{}').tema; if (t === 'claro' || t === 'oscuro') document.documentElement.dataset.theme = t === 'claro' ? 'light' : 'dark'; } catch (e) {}
+  /* Si data/comandos.js tiene un error de sintaxis, lo anotamos para mostrarlo en pantalla. */
+  window.ATLAS_ERRORES = [];
+  window.addEventListener('error', function (e) { if (e.filename && /data\//.test(e.filename)) window.ATLAS_ERRORES.push({ archivo: e.filename.split('/').slice(-2).join('/'), linea: e.lineno, mensaje: e.message }); });
+</script>
+</head>
+<body>
+<a class="saltar" href="#resultados">Saltar a los resultados</a>
+
+<header class="cabecera">
+  <a class="marca" href="./" aria-label="Prompt Atlas, inicio"><span class="marca-sello" aria-hidden="true">P/</span><span class="marca-nombre">Prompt Atlas</span></a>
+  <div class="buscador" role="search">
+    <label for="buscar" class="sr">Buscar comandos</label>
+    <svg class="buscador-ico" aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+    <input id="buscar" type="search" autocomplete="off" spellcheck="false" placeholder="Buscar: acuarela, luz, tipo:cámara…" aria-describedby="buscar-ayuda">
+    <span id="buscar-ayuda" class="sr">Atajo: barra o Control más K. Operadores: tipo:, cat:, almohadilla para etiqueta, guion para excluir.</span>
+    <kbd class="buscador-atajo" aria-hidden="true">/</kbd>
+  </div>
+  <div class="cabecera-acciones">
+    <button class="boton boton-fantasma" id="abrirGuia" type="button" aria-haspopup="dialog">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/></svg><span class="solo-ancho">Guía y consejos</span>
+    </button>
+    <button class="boton boton-icono" id="tema" type="button" aria-label="Tema: según el sistema. Cambiar tema">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="disposicion">
+  <button class="boton filtros-movil" id="verFiltros" type="button" aria-expanded="false" aria-controls="panelFiltros">
+    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filtros <span id="filtrosActivos" class="contador"></span>
+  </button>
+
+  <nav class="lateral" id="panelFiltros" aria-label="Filtros de la biblioteca">
+    <div class="grupo">
+      <h2 class="grupo-titulo">Biblioteca</h2>
+      <ul class="lista-nav" id="navVistas"></ul>
+    </div>
+    <div class="grupo">
+      <h2 class="grupo-titulo">Tipo</h2>
+      <ul class="lista-nav" id="navTipos"></ul>
+    </div>
+    <div class="grupo">
+      <h2 class="grupo-titulo">Categoría</h2>
+      <ul class="lista-nav" id="navCategorias"></ul>
+    </div>
+    <p class="lateral-nota">Los comandos se editan en <code>data/comandos.js</code>. Tus favoritos se guardan solos en este navegador. <button type="button" class="enlace" id="dondeDatos">¿Dónde se guarda?</button></p>
+  </nav>
+
+  <main id="principal" class="principal" tabindex="-1">
+    <h1 class="sr">Biblioteca de comandos visuales</h1>
+    <div id="avisoDatos" class="aviso aviso-error" role="alert" hidden></div>
+
+    <section class="consejo" aria-labelledby="consejoTitulo">
+      <h2 id="consejoTitulo" class="consejo-titulo">Consejo</h2>
+      <p id="consejoTexto" class="consejo-texto" aria-live="polite"></p>
+      <button type="button" class="boton boton-pequeno boton-fantasma" id="otroConsejo" aria-label="Mostrar otro consejo">Otro</button>
+    </section>
+
+    <div class="barra-resultados">
+      <p id="resultados" class="resultados" aria-live="polite" tabindex="-1"></p>
+      <div class="barra-herramientas">
+        <button type="button" class="boton boton-pequeno boton-fantasma" id="limpiar" hidden>Quitar filtros</button>
+        <label class="sr" for="orden">Ordenar</label>
+        <select id="orden" class="selector">
+          <option value="origen">Orden original</option>
+          <option value="az">A → Z</option>
+          <option value="tipo">Por tipo</option>
+        </select>
+        <div class="segmentado" role="group" aria-label="Vista">
+          <button type="button" class="boton-icono" id="vistaRejilla" aria-pressed="true" aria-label="Vista en cuadrícula"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button>
+          <button type="button" class="boton-icono" id="vistaLista" aria-pressed="false" aria-label="Vista en lista"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12"/><rect x="3" y="4.5" width="3" height="3" rx=".8"/><rect x="3" y="10.5" width="3" height="3" rx=".8"/><rect x="3" y="16.5" width="3" height="3" rx=".8"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <ul id="tarjetas" class="tarjetas" aria-label="Comandos"></ul>
+    <div id="vacio" class="vacio" hidden>
+      <p class="vacio-titulo">Sin resultados</p>
+      <p>Prueba con otra palabra o quita algún filtro.</p>
+      <button type="button" class="boton" id="vacioLimpiar">Quitar filtros</button>
+    </div>
+
+    <footer class="pie">
+      <p>Las miniaturas son ilustraciones de referencia generadas por la propia app (SVG), no resultados de una IA. Los nombres con barra son descriptores, no comandos oficiales de ChatGPT.</p>
+    </footer>
+  </main>
+</div>
+
+<!-- Bandeja de mezcla (aparece al añadir comandos) -->
+<aside class="mezcla" id="mezcla" aria-label="Mezcla de comandos" hidden>
+  <div class="mezcla-dentro">
+    <p class="mezcla-titulo">Mezcla <span id="mezclaCuenta" class="contador"></span></p>
+    <ul class="mezcla-fichas" id="mezclaFichas"></ul>
+    <div class="mezcla-acciones">
+      <button type="button" class="boton boton-primario" id="mezclaAbrir" aria-haspopup="dialog">Ver prompt</button>
+      <button type="button" class="boton boton-fantasma" id="mezclaVaciar">Vaciar</button>
+    </div>
+  </div>
+</aside>
+
+<!-- Ficha de comando -->
+<dialog id="ficha" class="dialogo dialogo-ficha" aria-labelledby="fichaTitulo">
+  <div class="dialogo-cabecera">
+    <div>
+      <p class="dialogo-meta" id="fichaMeta"></p>
+      <h2 class="dialogo-titulo" id="fichaTitulo"></h2>
+    </div>
+    <div class="dialogo-nav">
+      <button type="button" class="boton boton-icono" id="fichaAnterior" aria-label="Comando anterior"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>
+      <button type="button" class="boton boton-icono" id="fichaSiguiente" aria-label="Comando siguiente"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+      <button type="button" class="boton boton-icono" data-cerrar aria-label="Cerrar ficha"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+  </div>
+  <div class="dialogo-cuerpo ficha-cuerpo" id="fichaCuerpo"></div>
+</dialog>
+
+<!-- Prompt de la mezcla -->
+<dialog id="dialogoMezcla" class="dialogo dialogo-ficha" aria-labelledby="mezclaDialogoTitulo">
+  <div class="dialogo-cabecera">
+    <div>
+      <p class="dialogo-meta">Mezcla</p>
+      <h2 class="dialogo-titulo" id="mezclaDialogoTitulo">Prompt combinado</h2>
+    </div>
+    <button type="button" class="boton boton-icono" data-cerrar aria-label="Cerrar mezcla"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div class="dialogo-cuerpo" id="mezclaCuerpo"></div>
+</dialog>
+
+<!-- Guía -->
+<dialog id="guia" class="dialogo dialogo-guia" aria-labelledby="guiaTitulo">
+  <div class="dialogo-cabecera">
+    <div>
+      <p class="dialogo-meta">Guía</p>
+      <h2 class="dialogo-titulo" id="guiaTitulo">Consejos de uso</h2>
+    </div>
+    <button type="button" class="boton boton-icono" data-cerrar aria-label="Cerrar guía"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div class="dialogo-cuerpo guia-cuerpo" id="guiaCuerpo"></div>
+</dialog>
+
+<div id="aviso" class="tostada" role="status" aria-live="polite"></div>
+
+<noscript><p class="aviso aviso-error">Prompt Atlas necesita JavaScript activado.</p></noscript>
+
+<!-- Datos editables -->
+<script src="data/comandos.js"></script>
+<script src="data/consejos.js"></script>
+<!-- Motor de miniaturas -->
+<script src="assets/miniaturas/motor.js"></script>
+<script src="assets/miniaturas/motivos.js"></script>
+<script src="assets/miniaturas/motivos-naturaleza.js"></script>
+<script src="assets/miniaturas/motivos-lugares.js"></script>
+<script src="assets/miniaturas/motivos-diseno.js"></script>
+<script src="assets/miniaturas/motivos-tecnologia.js"></script>
+<script src="assets/miniaturas/tecnicas.js"></script>
+<!-- Aplicación -->
+<script src="assets/app.js"></script>
+</body>
+</html>
